@@ -23,7 +23,10 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from backend.app.auth.user_service import create_user
-from backend.app.database.database import get_db
+from backend.app.database.database import (
+    get_db,
+    init_db,
+)
 from backend.app.auth.auth_service import login_user
 from backend.app.auth.security import get_current_user
 from backend.app.auth.authorization import require_roles
@@ -49,6 +52,10 @@ app = FastAPI(
     description="Fraud Detection and Risk Assessment API",
     version="1.0.0",
 )
+
+@app.on_event("startup")
+def startup():
+    init_db()
 
 @app.exception_handler(Exception)
 async def global_exception_handler(
