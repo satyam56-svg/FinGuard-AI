@@ -1,4 +1,5 @@
 # FinGuard AI
+[🚀 Live Demo](https://finguard-ai-4ico.onrender.com)
 
 **FinGuard AI** is a full-stack, AI-powered financial fraud detection and risk assessment platform. It analyzes payment transactions in real time using a trained Random Forest classifier, quantifies risk through a deterministic risk engine, and produces SHAP-based feature explanations alongside a structured AI-generated analyst report powered by Google Gemini. The system is backed by a FastAPI REST API with JWT authentication, role-based access control, and a SQLite audit database — all presented through a modern React dashboard.
 
