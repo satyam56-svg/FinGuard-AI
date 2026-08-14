@@ -101,8 +101,9 @@ def root():
     }
 
 
-@app.get(
+@app.api_route(
     "/health",
+    methods=["GET", "HEAD"],
     summary="Check API health",
 )
 def health():
