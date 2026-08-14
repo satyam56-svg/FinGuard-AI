@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Pytest
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log
+
+# ML generated files
+ml_pipeline/logs/*
+ml_pipeline/figures/*
+ml_pipeline/reports/*
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Large datasets
+*.csv
+
+
+# Local / temporary files
+backend/app/database/finguard.db
+frontend/src.zip
+frontend/src/App.css.backup
+
