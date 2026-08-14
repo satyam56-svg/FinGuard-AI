@@ -47,6 +47,10 @@ from backend.app.services.dashboard_service import (
     get_recent_predictions,
 )
 
+from backend.app.auth.production_admin import (
+    bootstrap_production_admin,
+)
+
 app = FastAPI(
     title="FinGuard AI API",
     description="Fraud Detection and Risk Assessment API",
@@ -56,6 +60,7 @@ app = FastAPI(
 @app.on_event("startup")
 def startup():
     init_db()
+    bootstrap_production_admin()
 
 @app.exception_handler(Exception)
 async def global_exception_handler(
