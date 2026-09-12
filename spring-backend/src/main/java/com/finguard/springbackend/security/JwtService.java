@@ -16,7 +16,7 @@ public class JwtService {
     private final SecretKey secretKey;
 
     public JwtService(
-            @org.springframework.beans.factory.annotation.Value("${JWT_SECRET_KEY}")
+            @org.springframework.beans.factory.annotation.Value("${jwt.secret}")
             String secret
     ) {
         if (secret == null || secret.isBlank()) {

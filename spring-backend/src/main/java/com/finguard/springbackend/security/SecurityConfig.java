@@ -3,6 +3,7 @@ package com.finguard.springbackend.security;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -45,6 +46,8 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         .requestMatchers(
                                 "/",
                                 "/health",
@@ -98,7 +101,9 @@ public class SecurityConfig {
 
         configuration.setAllowedOrigins(
                 List.of(
-                        "https://finguard-ai-4lco.onrender.com"
+                        "https://finguard-ai-4lco.onrender.com",
+                        "http://localhost:5173",
+                        "http://localhost:3000"
                 )
         );
 
@@ -107,11 +112,17 @@ public class SecurityConfig {
                         "GET",
                         "POST",
                         "PATCH",
+                        "PUT",
+                        "DELETE",
                         "OPTIONS"
                 )
         );
 
         configuration.setAllowedHeaders(
+                List.of("*")
+        );
+
+        configuration.setExposedHeaders(
                 List.of(
                         "Authorization",
                         "Content-Type"
