@@ -38,12 +38,11 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Health check remains unchanged
   useEffect(() => {
     checkHealth()
       .then((data) => {
-        if (data.status === "healthy" && data.model_loaded) {
-          setBackendStatus("Backend Connected");
+        if (data && data.status === "healthy") {
+          setBackendStatus("Backend Available");
         } else {
           setBackendStatus("Backend Unavailable");
         }
@@ -260,7 +259,7 @@ function App() {
           <div className="backend-status-pill">
             <div
               className={`status-dot ${
-                backendStatus === "Backend Connected" ? "healthy" : "unavailable"
+                backendStatus === "Backend Available" ? "healthy" : "unavailable"
               }`}
             />
             <Server size={14} className="text-secondary" />
