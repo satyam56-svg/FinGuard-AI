@@ -23,20 +23,24 @@ function getAuthHeaders() {
 }
 
 async function parseResponse(response, fallbackMessage) {
-    const data = await response.json();
+    let data = null;
+    const text = await response.text();
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            data = null;
+        }
+    }
 
     if (!response.ok) {
-        // If unauthorized, clear session
         if (response.status === 401) {
             clearToken();
         }
-        throw new Error(
-            data.detail
-                ? typeof data.detail === "string"
-                    ? data.detail
-                    : JSON.stringify(data.detail)
-                : fallbackMessage
-        );
+        const errorDetail = data && data.detail
+            ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail))
+            : (data && data.message ? data.message : fallbackMessage);
+        throw new Error(errorDetail);
     }
 
     return data;

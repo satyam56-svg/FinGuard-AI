@@ -27,7 +27,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserResponse> register(
+    public ResponseEntity<?> register(
             @Valid @RequestBody RegisterRequest request
     ) {
         try {
@@ -52,12 +52,12 @@ public class AuthController {
         } catch (IllegalArgumentException exc) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
-                    .build();
+                    .body(java.util.Map.of("detail", exc.getMessage() != null ? exc.getMessage() : "Registration failed."));
         }
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(
+    public ResponseEntity<?> login(
             @Valid @RequestBody LoginRequest request
     ) {
         try {
@@ -73,7 +73,7 @@ public class AuthController {
         } catch (IllegalArgumentException exc) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .build();
+                    .body(java.util.Map.of("detail", exc.getMessage() != null ? exc.getMessage() : "Invalid username or password."));
         }
     }
 
