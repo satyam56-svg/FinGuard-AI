@@ -1,0 +1,80 @@
+package com.finguard.springbackend.security;
+
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter
+    ) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
+
+        http
+                .csrf(csrf -> csrf.disable())
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/",
+                                "/health",
+                                "/error",
+                                "/auth/login",
+                                "/auth/register"
+                        ).permitAll()
+
+                        .requestMatchers("/analyst/**")
+                        .hasAnyRole("ANALYST", "ADMIN")
+
+                        .requestMatchers("/admin/**")
+                        .hasRole("ADMIN")
+
+                        .anyRequest().authenticated()
+                )
+
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(
+                                (request, response, authException) -> {
+                                    response.setStatus(
+                                            HttpServletResponse.SC_UNAUTHORIZED
+                                    );
+                                    response.getWriter().write("Unauthorized");
+                                }
+                        )
+                        .accessDeniedHandler(
+                                (request, response, accessDeniedException) -> {
+                                    response.setStatus(
+                                            HttpServletResponse.SC_FORBIDDEN
+                                    );
+                                    response.getWriter().write("Forbidden");
+                                }
+                        )
+                )
+
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
+
+        return http.build();
+    }
+}

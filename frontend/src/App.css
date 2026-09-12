@@ -1258,6 +1258,20 @@
     min-width: 0;
   }
 
+
+  .form-group-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .top-header {
+    padding: 0 1rem;
+  }
+
+  .top-header-left {
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
   .page-title-group h2 {
     font-size: 0.95rem;
   }
@@ -1277,4 +1291,77 @@ select:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--primary-light);
   outline-offset: 2px;
+}
+
+/* Preset Buttons & Demo Controls */
+.preset-container {
+  background-color: var(--bg-card-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.preset-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.preset-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-btn.genuine {
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
+}
+
+.preset-btn.genuine:hover {
+  background-color: rgba(16, 185, 129, 0.25);
+  transform: translateY(-1px);
+}
+
+.preset-btn.high-risk {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
+}
+
+.preset-btn.high-risk:hover {
+  background-color: rgba(239, 68, 68, 0.25);
+  transform: translateY(-1px);
+}
+
+.sample-feedback {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-light);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }

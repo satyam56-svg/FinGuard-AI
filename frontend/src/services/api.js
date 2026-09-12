@@ -1,4 +1,8 @@
-const API_BASE_URL = "https://finguard-ai-backend-60wj.onrender.com";
+const API_BASE_URL =
+    import.meta.env.VITE_API_URL || "http://127.0.0.1:8080";
+import { isTokenExpired, clearToken } from "./auth";
+
+
 
 function getAuthHeaders() {
     const token = localStorage.getItem("finguard_token");
@@ -6,6 +10,12 @@ function getAuthHeaders() {
     if (!token) {
         throw new Error("Authentication required.");
     }
+    // Invalidate expired token
+    if (isTokenExpired(token)) {
+        clearToken();
+        throw new Error("Authentication token expired.");
+    }
+
 
     return {
         Authorization: `Bearer ${token}`,
@@ -16,6 +26,10 @@ async function parseResponse(response, fallbackMessage) {
     const data = await response.json();
 
     if (!response.ok) {
+        // If unauthorized, clear session
+        if (response.status === 401) {
+            clearToken();
+        }
         throw new Error(
             data.detail
                 ? typeof data.detail === "string"

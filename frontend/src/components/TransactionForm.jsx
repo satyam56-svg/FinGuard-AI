@@ -8,6 +8,10 @@ import {
   Hash,
   DollarSign,
   ArrowRightLeft,
+  Sparkles,
+  ShieldCheck,
+  ShieldAlert,
+  CheckCircle2,
 } from "lucide-react";
 
 const initialForm = {
@@ -21,13 +25,50 @@ const initialForm = {
   isFlaggedFraud: 0,
 };
 
+const SAMPLE_TRANSACTIONS = {
+  genuine: {
+    label: "Genuine sample",
+    type: "PAYMENT",
+    step: 1,
+    amount: 50,
+    oldbalanceOrg: 5000,
+    newbalanceOrig: 4950,
+    oldbalanceDest: 10000,
+    newbalanceDest: 10050,
+    isFlaggedFraud: 0,
+  },
+  highRisk: {
+    label: "High-risk sample",
+    type: "TRANSFER",
+    step: 1,
+    amount: 181,
+    oldbalanceOrg: 181,
+    newbalanceOrig: 0,
+    oldbalanceDest: 0,
+    newbalanceDest: 0,
+    isFlaggedFraud: 0,
+  },
+};
+
 function TransactionForm({ onSubmit, loading }) {
   const [form, setForm] = useState(initialForm);
   const [validationError, setValidationError] = useState("");
+  const [sampleFeedback, setSampleFeedback] = useState("");
+
+  function handleLoadSample(presetKey) {
+    const preset = SAMPLE_TRANSACTIONS[presetKey];
+    if (!preset) return;
+
+    const { label, ...fields } = preset;
+    setForm(fields);
+    setValidationError("");
+    setSampleFeedback(`✓ ${label} loaded`);
+  }
 
   function handleChange(event) {
     const { name, value } = event.target;
 
+    setSampleFeedback("");
     setForm((previous) => ({
       ...previous,
       [name]: name === "type" ? value : Number(value),
@@ -38,6 +79,7 @@ function TransactionForm({ onSubmit, loading }) {
     event.preventDefault();
 
     setValidationError("");
+    setSampleFeedback("");
 
     if (form.step < 0) {
       setValidationError("Transaction step cannot be negative.");
@@ -82,6 +124,41 @@ function TransactionForm({ onSubmit, loading }) {
 
   return (
     <form className="transaction-form" onSubmit={handleSubmit}>
+      {/* Quick Demo Presets Section */}
+      <div className="preset-container">
+        <div className="preset-header">
+          <Sparkles size={14} className="text-primary" />
+          <span>Quick Demo Presets</span>
+        </div>
+
+        <div className="preset-group">
+          <button
+            type="button"
+            className="preset-btn genuine"
+            onClick={() => handleLoadSample("genuine")}
+          >
+            <ShieldCheck size={16} />
+            <span>Load Genuine Sample</span>
+          </button>
+
+          <button
+            type="button"
+            className="preset-btn high-risk"
+            onClick={() => handleLoadSample("highRisk")}
+          >
+            <ShieldAlert size={16} />
+            <span>Load High-Risk Sample</span>
+          </button>
+        </div>
+
+        {sampleFeedback && (
+          <div className="sample-feedback">
+            <CheckCircle2 size={14} />
+            <span>{sampleFeedback}</span>
+          </div>
+        )}
+      </div>
+
       {/* Group 1: Transaction Information */}
       <div className="form-section-title">
         <CreditCard size={16} />

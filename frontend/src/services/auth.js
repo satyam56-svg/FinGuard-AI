@@ -2,6 +2,18 @@ export function getToken() {
     return localStorage.getItem("finguard_token");
 }
 
+export function clearToken() {
+    localStorage.removeItem("finguard_token");
+}
+
+export function isTokenExpired() {
+    const payload = getTokenPayload();
+    if (!payload || !payload.exp) {
+        return true;
+    }
+    return Date.now() >= payload.exp * 1000;
+}
+
 export function getTokenPayload() {
     const token = getToken();
 
@@ -25,6 +37,11 @@ export function getTokenPayload() {
 }
 
 export function getCurrentUser() {
+    if (isTokenExpired()) {
+        clearToken();
+        return null;
+    }
+
     const payload = getTokenPayload();
 
     if (!payload) {
@@ -42,5 +59,5 @@ export function getUserRole() {
 }
 
 export function isAuthenticated() {
-    return Boolean(getToken());
+    return Boolean(getToken()) && !isTokenExpired();
 }

@@ -8,7 +8,7 @@ import Register from "./components/Register";
 import PredictionHistory from "./components/PredictionHistory";
 import AnalystDashboard from "./components/AnalystDashboard";
 import AdminDashboard from "./components/AdminDashboard";
-import { getCurrentUser } from "./services/auth";
+import { getCurrentUser, getTokenPayload, clearToken, getToken } from "./services/auth";
 import {
   ShieldAlert,
   Search,
@@ -38,6 +38,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Health check remains unchanged
   useEffect(() => {
     checkHealth()
       .then((data) => {
@@ -52,6 +53,38 @@ function App() {
       });
   }, []);
 
+  // ------- JWT Expiration Timer -------
+  useEffect(() => {
+    // Clear any previous timer
+    let timerId;
+    const token = getToken();
+    if (token) {
+      const payload = getTokenPayload();
+      if (payload && payload.exp) {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const msUntilExp = (payload.exp - nowSec) * 1000;
+        if (msUntilExp > 0) {
+          timerId = setTimeout(() => {
+            clearToken();
+            setToken(null);
+            // No need to set currentUser; UI reacts to token state
+          }, msUntilExp);
+        } else {
+          // Already expired
+          clearToken();
+          setToken(null);
+        }
+      } else {
+        // No exp claim – treat as expired for safety
+        clearToken();
+        setToken(null);
+      }
+    }
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [token]);
+
   function handleLogin(newToken) {
     setToken(newToken);
     setShowRegister(false);
@@ -61,7 +94,7 @@ function App() {
   }
 
   function handleLogout() {
-    localStorage.removeItem("finguard_token");
+    clearToken();
     setToken(null);
     setResult(null);
     setError(null);
@@ -244,7 +277,7 @@ function App() {
                   <ShieldAlert size={22} className="text-primary" /> Transaction Risk Engine
                 </h2>
                 <p>
-                  Evaluate transaction risk in real time using FinGuard AI's XGBoost ML model, SHAP feature impact explainability, and Gemini AI assessment.
+                  Evaluate transaction risk in real time using FinGuard AI's Random Forest ML model, SHAP feature impact explainability, and Gemini AI assessment.
                 </p>
                 <div className="status-message">
                   Backend Status: <strong>{backendStatus}</strong>

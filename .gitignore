@@ -39,3 +39,9 @@ backend/app/database/finguard.db
 frontend/src.zip
 frontend/src/App.css.backup
 
+# Archived legacy files
+archive/
+
+# Java / Maven
+**/target/
+backend/app/database/finguard.db.bak

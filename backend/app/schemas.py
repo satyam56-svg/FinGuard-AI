@@ -111,24 +111,4 @@ class PredictionHistoryResponse(BaseModel):
     risk_score: float
     risk_level: str
     recommendation: str
-
-class DashboardStatsResponse(BaseModel):
-    total_predictions: int
-    fraud_predictions: int
-    non_fraud_predictions: int
-    fraud_rate: float
-    average_risk_score: float
-
-class RiskDistributionResponse(BaseModel):
-    low: int
-    medium: int
-    high: int
-    critical: int
-
-class RecentPredictionResponse(BaseModel):
-    id: int
-    prediction: int
-    fraud_probability: float
-    risk_score: float
-    risk_level: str
-    recommendation: str
+
