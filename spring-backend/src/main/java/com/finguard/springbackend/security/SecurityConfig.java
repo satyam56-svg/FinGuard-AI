@@ -102,6 +102,7 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(
                 List.of(
                         "https://finguard-ai-4lco.onrender.com",
+                        "https://finguard-ai-4ico.onrender.com",
                         "http://localhost:5173",
                         "http://localhost:3000"
                 )
