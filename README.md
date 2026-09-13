@@ -1,7 +1,10 @@
-# FinGuard AI
-[🚀 Live Demo](https://finguard-ai-4ico.onrender.com)
+# FinGuard AI — AI Powered Fraud Detection System
 
-**FinGuard AI** is a full-stack, AI-powered financial fraud detection and risk assessment platform. It analyzes payment transactions in real time using a trained Random Forest classifier, quantifies risk through a deterministic risk engine, and produces SHAP-based feature explanations alongside a structured AI-generated analyst report powered by Google Gemini. The system is backed by a FastAPI REST API with JWT authentication, role-based access control, and a SQLite audit database — all presented through a modern React dashboard.
+[🚀 Live Demo](https://finguard-ai-4ico.onrender.com) | [Spring Boot Backend API](https://finguard-ai-spring.onrender.com) | [FastAPI ML Bridge](https://finguard-ai-backend-60wj.onrender.com)
+
+**FinGuard AI** is an enterprise-grade financial fraud detection and risk assessment platform. It evaluates payment transactions in real time using a trained Random Forest machine learning classifier, computes deterministic risk scores and levels, generates SHAP feature-level explainability, and produces structured AI analyst reports powered by Google Gemini 2.5 Flash.
+
+The production system architecture features a **React SPA frontend**, a robust **Spring Boot backend** handling security, authentication, RBAC, and audit persistence via **Neon PostgreSQL**, and a lightweight **FastAPI ML Bridge** dedicated to model inference and AI report generation.
 
 ---
 
@@ -17,422 +20,258 @@
 - [AI Report Generation](#ai-report-generation)
 - [API Documentation](#api-documentation)
 - [Authentication & Authorization](#authentication--authorization)
-- [Frontend Architecture](#frontend-architecture)
-- [Backend Architecture](#backend-architecture)
+- [Database Architecture](#database-architecture)
+- [Admin Bootstrap Mechanism](#admin-bootstrap-mechanism)
 - [Project Structure](#project-structure)
-- [Installation](#installation)
-- [Running the Application](#running-the-application)
+- [Environment Variables](#environment-variables)
+- [Local Development](#local-development)
+- [Production Deployment](#production-deployment)
+- [Security](#security)
+- [Testing](#testing)
+- [Current Status](#current-status)
 
 ---
 
 ## Overview
 
-Financial fraud causes significant losses across payment networks every year. Detecting it in real time — and explaining why a transaction was flagged — is a core challenge for financial systems.
+Detecting financial transaction fraud requires real-time execution, precise risk scoring, feature-level transparency, and operational auditability. FinGuard AI fulfills these requirements through a decoupled microservice architecture:
 
-FinGuard AI addresses this by providing a complete fraud evaluation pipeline:
-
-1. A transaction is submitted with its payment type, amount, and account balance states.
-2. The backend applies a trained Random Forest model to produce a fraud probability.
-3. A deterministic risk engine converts that probability into a normalized risk score (0–100), a categorical risk level (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), and a recommended action.
-4. SHAP (SHapley Additive exPlanations) identifies which features increased or decreased the fraud risk in that specific transaction.
-5. Google Gemini generates a structured, constrained analyst-style report that summarizes the existing ML assessment in plain language. Gemini does not produce a new prediction — it explains the one the model already made.
-6. Every prediction is stored in a SQLite audit database linked to the authenticated user.
-7. The result is presented in a React dashboard with role-gated views for regular users, analysts, and administrators.
+1. **Submission**: The user submits payment transaction details (type, amount, balance states) via the React frontend.
+2. **Gateway & Security**: The request reaches the Spring Boot backend, which authenticates the user via JWT, validates account status, and enforces Role-Based Access Control (RBAC).
+3. **ML Inference & Explainability**: Spring Boot forwards the transaction payload to the FastAPI ML Bridge, which executes the ML pipeline:
+   - Feature engineering and preprocessing via scikit-learn `ColumnTransformer`.
+   - Fraud probability prediction using the trained `RandomForestClassifier`.
+   - Deterministic risk assessment (0–100 score, categorical risk level, recommended action).
+   - SHAP `TreeExplainer` feature-level risk and protective factor extraction with human-readable labels.
+   - Constrained AI report synthesis powered by **Google Gemini 2.5 Flash** (`gemini-2.5-flash`).
+4. **Audit & Response**: FastAPI returns the prediction result to Spring Boot. Spring Boot persists the prediction audit log into **Neon PostgreSQL** and delivers the payload back to the React UI.
 
 ---
 
 ## Key Features
 
-### Fraud Detection
+### Fraud Detection & Risk Scoring
+- Real-time transaction assessment via Spring Boot `/predict` endpoint.
+- Trained Random Forest model configured with class imbalance mitigation.
+- Configurable decision threshold (default: `0.60`).
+- Continuous fraud probability (`0.0` to `1.0`).
+- Normalized risk score (`0.0` to `100.0`, calculated as `fraud_probability × 100`).
+- Categorical risk level: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`.
+- Actionable decision recommendations: `ALLOW`, `ALLOW_WITH_MONITORING`, `REVIEW`, `BLOCK_OR_REVIEW`.
 
-- Real-time transaction analysis via `POST /predict`
-- Random Forest classifier with class-weight imbalance handling
-- Configurable fraud probability threshold (default: **0.60**)
-- Fraud probability output (0.0 – 1.0)
-- Normalized risk score (0 – 100, computed as `fraud_probability × 100`)
-- Categorical risk level: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
-- Deterministic recommendation: `ALLOW`, `ALLOW_WITH_MONITORING`, `REVIEW`, `BLOCK_OR_REVIEW`
+### Explainable AI (SHAP)
+- Feature contribution analysis using SHAP `TreeExplainer`.
+- Top risk factors (features increasing fraud probability).
+- Top protective factors (features decreasing fraud probability).
+- Human-readable feature naming mapping internal pipeline terms to intuitive domain descriptions (e.g. `"Origin balance pattern"`).
+- Quantified impact metrics and direction indicator (`increases_fraud_risk` vs `reduces_fraud_risk`).
 
-### Explainable AI
+### AI Report Generation
+- AI analyst summary powered by **Google Gemini 2.5 Flash** (`gemini-2.5-flash`).
+- Strict JSON schema enforcement via Pydantic (`summary`, `risk_reason`, `recommended_action`).
+- Constrained prompt guardrails: Gemini purely explains existing ML results and cannot alter probabilities, risk scores, levels, or recommendations.
 
-- SHAP `TreeExplainer` applied to every prediction
-- Top-5 risk factors (features increasing fraud probability)
-- Top-5 protective factors (features reducing fraud probability)
-- Human-readable feature labels (e.g. `"Origin balance pattern"` instead of raw column names)
-- Each factor includes: feature name, raw value, absolute SHAP impact, and direction
+### Security, Authentication & Role Management
+- User registration and authentication with BCrypt password hashing.
+- Stateless JWT issuance (HS256 signature).
+- Role-Based Access Control (RBAC) with three tiers: `USER`, `ANALYST`, and `ADMIN`.
+- Account active/inactive status enforcement on every authenticated endpoint.
+- Admin self-protection server-side rules preventing admins from deactivating or revoking their own admin access.
+- Startup admin account bootstrapper based on environment configuration.
 
-### AI Reporting
-
-- Powered by **Google Gemini 2.5 Flash** (`gemini-2.5-flash`)
-- Gemini receives the existing ML result (prediction, probability, risk score, risk level, recommendation, SHAP explanation) via a tightly constrained prompt
-- Gemini produces a structured report with three fields: `summary`, `risk_reason`, `recommended_action`
-- The response is validated against the `AIReport` Pydantic schema before it is returned
-- **Gemini does not make a new fraud prediction.** It does not modify the fraud probability, risk score, risk level, or recommendation. It only explains the ML-generated assessment in plain language.
-
-### Authentication & Authorization
-
-- User registration with bcrypt password hashing
-- Login via `POST /auth/login`, returning a signed JWT (HS256)
-- Token expiry: 60 minutes
-- JWT stored on the frontend under `localStorage` key `finguard_token`
-- Active/inactive account enforcement on every authenticated request
-- Role-based authorization enforced server-side via dependency injection
-- Three roles: `USER`, `ANALYST`, `ADMIN`
-
-### User Features (all authenticated roles)
-
-- Submit transaction analysis
-- View fraud probability, risk score, risk level, and recommendation
-- View SHAP risk and protective factors
-- View the Gemini AI analyst report
-- View personal prediction history
-
-### Analyst Features (`ANALYST` and `ADMIN`)
-
-- Dashboard statistics: total predictions, fraud count, non-fraud count, fraud rate, average risk score
-- Risk tier distribution: count of `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` predictions across all users
-- Recent predictions feed
-
-### Admin Features (`ADMIN` only)
-
-- View all registered users (username, email, role, active status)
-- Change any user's role (`USER` → `ANALYST` → `ADMIN`)
-- Activate or deactivate user accounts
-- Admin self-protection: an admin cannot change their own role or deactivate their own account (enforced server-side)
+### Dashboard & Audit
+- User-level prediction history (`/predictions/history`).
+- Analyst dashboard metrics (`total_predictions`, `fraud_predictions`, `non_fraud_predictions`, `fraud_rate`, `average_risk_score`).
+- Analyst risk distribution breakdown across risk tiers (`low`, `medium`, `high`, `critical`).
+- Analyst recent predictions feed.
+- Admin User Management Console (list users, modify user roles, activate/deactivate accounts).
 
 ---
 
 ## System Architecture
 
-```mermaid
-flowchart TD
-    A[React Frontend] -->|POST /predict| B[FastAPI Backend]
-    B --> C{JWT Authentication}
-    C -->|Valid| D[FraudPredictor]
-    D --> E[FraudPreprocessor\nColumnTransformer]
-    E --> F[RandomForestClassifier]
-    F --> G[RiskEngine\nrisk score · level · recommendation]
-    G --> H[FraudExplainer\nSHAP TreeExplainer]
-    H --> I[ExplanationFormatter\nhuman-readable labels]
-    I --> J[AIReportGenerator\nGemini 2.5 Flash]
-    J --> K{AIReport Pydantic Validation}
-    K --> L[PredictionAuditService\nSQLite write]
-    L --> M[JSON Response → Frontend]
-    C -->|Invalid| N[HTTP 401]
 ```
-
-**Separation of concerns:**
-- **Frontend** — React + Vite SPA, handles display and user interaction only
-- **Backend** — FastAPI application, orchestrates all services, enforces auth/authz
-- **ML Pipeline** — standalone Python package (`ml_pipeline/`), handles preprocessing, model inference, risk scoring, and SHAP
-- **AI Reporting** — `AIReportGenerator` service calls Gemini with a constrained prompt and validates the response
-- **Database / Audit** — SQLite via SQLAlchemy, stores users and prediction audit records
+                       ┌──────────────────────────────────┐
+                       │          React Frontend          │
+                       │ (https://finguard-ai-4ico... )   │
+                       └────────────────┬─────────────────┘
+                                        │
+                                        │ REST API / JWT
+                                        ▼
+                       ┌──────────────────────────────────┐
+                       │        Spring Boot Backend       │
+                       │ (https://finguard-ai-spring... ) │
+                       └───────┬──────────────────┬───────┘
+                               │                  │
+           Application Data /  │                  │ REST Proxy
+             Audit Persistence │                  │ (/predict)
+                               ▼                  ▼
+┌────────────────────────────────┐      ┌──────────────────────────────────┐
+│    Neon PostgreSQL Database    │      │        FastAPI ML Bridge         │
+│     (Users & Audit Logs)       │      │ (https://finguard-ai-backend... )│
+└────────────────────────────────┘      └────────────────┬─────────────────┘
+                                                         │
+                                                         ▼
+                                                Python ML Pipeline
+                                        ┌──────────────────────────────────┐
+                                        │ ├── FraudPreprocessor            │
+                                        │ ├── RandomForestClassifier       │
+                                        │ ├── RiskEngine                   │
+                                        │ ├── FraudExplainer (SHAP)        │
+                                        │ └── AIReportGenerator (Gemini)   │
+                                        └──────────────────────────────────┘
+```
 
 ---
 
 ## Technology Stack
 
-### Frontend
-
-| Technology | Version | Purpose |
+### Backend Service (Application & Auth Gateway)
+| Component | Technology | Description |
 |---|---|---|
-| React | 19.x | UI component framework |
-| Vite | 8.x | Build tool and dev server |
-| JavaScript / JSX | ES2022+ | Component logic |
-| Vanilla CSS | — | Styling and design system |
-| lucide-react | latest | Icon library |
+| Language | Java 17 | Core backend runtime |
+| Framework | Spring Boot 3.x | Web API framework |
+| Security | Spring Security | Security filter chain and authorization rules |
+| Authentication | JWT (jjwt) | Stateless JWT creation and validation |
+| Password Hashing | BCrypt | Password encryption |
+| Data Access | Spring Data JPA / Hibernate | ORM and persistence abstraction |
+| HTTP Client | Spring RestClient | High-performance synchronous client for FastAPI bridge |
 
-### Backend
-
-| Technology | Version | Purpose |
+### ML Bridge & Pipeline Service
+| Component | Technology | Description |
 |---|---|---|
-| Python | 3.11 | Runtime |
-| FastAPI | 0.141 | REST API framework |
-| Uvicorn | 0.52 | ASGI server |
-| Pydantic | 2.x | Request/response validation and schema enforcement |
-| SQLAlchemy | 2.0 | ORM and database access |
-| python-jose | 3.x | JWT creation and validation (HS256) |
-| bcrypt | 5.x | Password hashing |
-| python-dotenv | 1.x | Environment variable loading |
-| Starlette | 1.x | ASGI middleware and CORS |
+| Language | Python 3.11 | ML runtime environment |
+| Framework | FastAPI | Async REST API framework for ML model |
+| Server | Uvicorn | ASGI web server |
+| Machine Learning | scikit-learn | RandomForestClassifier & ColumnTransformer preprocessor |
+| Explainability | SHAP | TreeExplainer for feature importance analysis |
+| Generative AI | Google Gemini 2.5 Flash | `google-genai` client for structured report generation |
+| Data Processing | pandas, NumPy, joblib | Data matrix handling and artifact serialization |
+| Schema Validation | Pydantic v2 | Fast strict schema validation |
 
-### Machine Learning
-
-| Technology | Version | Purpose |
+### Frontend Application
+| Component | Technology | Description |
 |---|---|---|
-| scikit-learn | 1.9 | RandomForestClassifier, preprocessing pipeline |
-| XGBoost | 3.2 | Trained during evaluation phase |
-| LightGBM | 4.7 | Trained during evaluation phase |
-| SHAP | 0.51 | TreeExplainer for feature-level explanations |
-| pandas | 3.x | Data loading and feature engineering |
-| NumPy | 2.x | Numerical operations |
-| joblib | 1.5 | Model and preprocessor artifact serialization |
-| scipy | 1.17 | Sparse matrix support |
+| Framework | React 19 | Component-based UI library |
+| Build Tool | Vite | Fast frontend build server |
+| Language | JavaScript (ES2022+) | Application logic |
+| Styling | Vanilla CSS | Responsive custom styling system |
+| Icons | Lucide React | Modern icons |
 
-### AI
-
-| Technology | Version | Purpose |
+### Database & Storage
+| Database | Mode | Description |
 |---|---|---|
-| Google Gemini 2.5 Flash | via `google-genai` | Analyst report generation |
-| google-genai | 2.18 | Gemini API client |
-
-### Database
-
-| Technology | Purpose |
-|---|---|
-| SQLite | Persistent storage for users and prediction audit records |
-| `finguard.db` | Single-file database at `backend/app/database/finguard.db` |
+| **Neon PostgreSQL** | **Production** | Managed cloud PostgreSQL database for production environment |
+| **SQLite** | **Local Fallback** | File-based local database fallback (`finguard.db`) managed via Hibernate |
 
 ---
 
 ## Machine Learning Pipeline
 
-### Dataset
+### Dataset Contract & Feature Engineering
+The model is trained on the **PaySim** financial transaction dataset. Input payloads accept 12 features, including 4 engineered balance-consistency features:
 
-The pipeline is built for the **PaySim** synthetic financial transaction dataset (`paysim.csv`). PaySim simulates mobile money transactions and includes labeled fraud cases. Raw identifier columns (`nameOrig`, `nameDest`) are intentionally excluded from the model feature set.
-
-### Feature Engineering
-
-Four balance-consistency features are computed from raw transaction fields:
-
-| Engineered Feature | Formula | Purpose |
+| Engineered Feature | Calculation Formula | Purpose |
 |---|---|---|
-| `origin_balance_error` | `oldbalanceOrg - amount - newbalanceOrig` | Detects inconsistency in origin account balance after transaction |
-| `destination_balance_error` | `oldbalanceDest + amount - newbalanceDest` | Detects inconsistency in destination account balance after transaction |
-| `origin_balance_change` | `oldbalanceOrg - newbalanceOrig` | Net debit from origin account |
-| `destination_balance_change` | `newbalanceDest - oldbalanceDest` | Net credit to destination account |
+| `origin_balance_error` | `oldbalanceOrg - amount - newbalanceOrig` | Detects post-transaction origin balance discrepancies |
+| `destination_balance_error` | `oldbalanceDest + amount - newbalanceDest` | Detects post-transaction destination balance discrepancies |
+| `origin_balance_change` | `oldbalanceOrg - newbalanceOrig` | Net amount debited from origin account |
+| `destination_balance_change` | `newbalanceDest - oldbalanceDest` | Net amount credited to destination account |
 
-These four features, combined with the original transaction fields, form the 12-column feature contract used by the preprocessor and model.
+### Preprocessing & Artifacts
+- **Numeric Features (11 columns)**: Imputed with median strategy via scikit-learn `SimpleImputer`.
+- **Categorical Feature (`type`)**: Encoded via `OneHotEncoder(handle_unknown="ignore")`.
+- Fitted preprocessing transformer is serialized at `ml_pipeline/models/preprocessor.pkl`.
 
-### Preprocessing
+### Train / Validation / Test Split
+- **Training**: 70%
+- **Validation**: 15%
+- **Test**: 15%
 
-The `FraudPreprocessor` uses a scikit-learn `ColumnTransformer` with two sub-pipelines:
-
-**Numeric pipeline** (applied to 11 columns):
-- `SimpleImputer(strategy="median")` — handles missing values
-
-**Categorical pipeline** (applied to `type`):
-- `SimpleImputer(strategy="most_frequent")` — handles missing values
-- `OneHotEncoder(handle_unknown="ignore", sparse_output=True)` — encodes transaction type
-
-The preprocessor is fitted on training data only and serialized to `ml_pipeline/models/preprocessor.pkl` via joblib. The same fitted artifact is loaded at inference time, ensuring consistent feature transformation.
-
-### Dataset Split
-
-| Split | Ratio |
-|---|---|
-| Training | 70% |
-| Validation | 15% |
-| Test | 15% |
-
-### Models Trained
-
-During the training phase, five baseline classifiers are trained and evaluated. All support class-weight imbalance handling:
-
-| Model | Config |
-|---|---|
-| Logistic Regression | `max_iter=1000`, `solver=liblinear`, class weights |
-| Decision Tree | `max_depth=10`, class weights |
-| Random Forest | `n_estimators=150`, `max_depth=12`, class weights |
-| XGBoost | `n_estimators=200`, `max_depth=6`, `learning_rate=0.1`, `scale_pos_weight` |
-| LightGBM | `n_estimators=200`, `max_depth=6`, `learning_rate=0.1`, `scale_pos_weight` |
-
-Primary evaluation metric: **F1 score**.
-
-### Production Model
-
-The production inference pipeline loads `ml_pipeline/models/random_forest.pkl`. All trained model artifacts are serialized to `ml_pipeline/models/`.
-
-### Inference Flow
-
-```
-Raw transaction dict
-    ↓
-pd.DataFrame([transaction])
-    ↓
-FraudPreprocessor.transform()   ← fitted ColumnTransformer
-    ↓
-RandomForestClassifier.predict_proba()
-    ↓
-fraud_probability (float, 0.0 – 1.0)
-    ↓
-RiskEngine.evaluate()           ← risk score, level, recommendation
-    ↓
-FraudExplainer.explain()        ← SHAP TreeExplainer, top-10 features
-    ↓
-ExplanationFormatter.format()   ← risk factors / protective factors, top-5
-    ↓
-AIReportGenerator.generate()    ← Gemini 2.5 Flash, constrained prompt
-    ↓
-AIReport Pydantic validation
-    ↓
-PredictionAuditService          ← SQLite write
-    ↓
-PredictionResponse JSON
-```
+### Model Selection
+Evaluated classifiers during training: Logistic Regression, Decision Tree, Random Forest, XGBoost, and LightGBM.  
+The production deployment utilizes `ml_pipeline/models/random_forest.pkl` (`RandomForestClassifier` with class-weight balancing).
 
 ---
 
 ## Risk Engine
 
-The `RiskEngine` (`ml_pipeline/risk/risk_engine.py`) converts ML fraud probability into a deterministic application-level risk decision. It does not modify or retrain the ML model.
+The `RiskEngine` (`ml_pipeline/risk/risk_engine.py`) derives deterministic risk scores and categories directly from the raw fraud probability.
 
-### Risk Score
+- **Risk Score**: `round(fraud_probability * 100.0, 2)` (Scale: 0.0 to 100.0)
+- **Decision Threshold**: `0.60` (Default configured in `MLConfig`)
 
-```
-risk_score = round(fraud_probability × 100, 2)
-```
-
-Range: 0 (lowest risk) to 100 (highest risk).
-
-### Risk Levels
-
-| Level | Condition |
-|---|---|
-| `LOW` | `fraud_probability < 0.20` |
-| `MEDIUM` | `0.20 ≤ fraud_probability < 0.40` |
-| `HIGH` | `0.40 ≤ fraud_probability < fraud_threshold` |
-| `CRITICAL` | `fraud_probability ≥ fraud_threshold` |
-
-### Recommendations
-
-| Recommendation | Condition |
-|---|---|
-| `ALLOW` | `fraud_probability < 0.20` |
-| `ALLOW_WITH_MONITORING` | `0.20 ≤ fraud_probability < 0.40` |
-| `REVIEW` | `0.40 ≤ fraud_probability < fraud_threshold` |
-| `BLOCK_OR_REVIEW` | `fraud_probability ≥ fraud_threshold` |
-
-The fraud threshold defaults to **0.60** and is defined in `ml_pipeline/config/config.py`. The prediction label (`0` = genuine, `1` = fraud) is derived from `fraud_probability >= fraud_threshold`.
+| Fraud Probability Range | Risk Level | Recommendation |
+|---|---|---|
+| `< 0.20` | `LOW` | `ALLOW` |
+| `0.20` to `< 0.40` | `MEDIUM` | `ALLOW_WITH_MONITORING` |
+| `0.40` to `< 0.60` | `HIGH` | `REVIEW` |
+| `≥ 0.60` | `CRITICAL` | `BLOCK_OR_REVIEW` |
 
 ---
 
 ## Explainability
 
-SHAP explanations are generated by `FraudExplainer` (`ml_pipeline/explainability/shap_explainer.py`) using `shap.TreeExplainer`, which is optimized for tree-based models like Random Forest.
-
-**Process:**
-1. `shap.TreeExplainer(model)` is initialized once at predictor load time.
-2. For each prediction, `explainer.shap_values(X)` is called on the preprocessed single-transaction matrix.
-3. SHAP values indicate each feature's marginal contribution to the fraud probability.
-4. The top 10 features by absolute SHAP value are returned.
-
-**ExplanationFormatter** (`ml_pipeline/explainability/explanation_formatter.py`) then:
-- Maps internal feature names (e.g. `numeric__origin_balance_error`) to human-readable labels (e.g. `"Origin balance pattern"`)
-- Separates features into **risk factors** (positive SHAP value → increases fraud probability) and **protective factors** (negative SHAP value → reduces fraud probability)
-- Skips inactive one-hot encoded transaction type categories (zero-valued)
-- Returns the top 5 of each group, sorted by impact magnitude
-
-Each factor in the response includes:
-```json
-{
-  "feature": "Origin balance pattern",
-  "value": 181.0,
-  "impact": 0.042317,
-  "direction": "increases_fraud_risk"
-}
-```
-
-The explanation is derived entirely from the trained model's output and does not constitute an independent prediction system.
+SHAP (`shap.TreeExplainer`) analyzes individual transaction predictions:
+1. Computes feature contribution values for the preprocessed transaction matrix.
+2. Formats top 5 **risk factors** (positive SHAP values pushing risk higher).
+3. Formats top 5 **protective factors** (negative SHAP values pushing risk lower).
+4. Translates raw column keys to human-readable names (e.g., `numeric__origin_balance_error` → `Origin balance pattern`).
 
 ---
 
 ## AI Report Generation
 
-`AIReportGenerator` (`backend/app/services/ai_report_generator.py`) calls **Gemini 2.5 Flash** using the `google-genai` client with `response_mime_type: application/json` to enforce structured output.
-
-### Flow
-
-```
-Existing ML result (prediction, probability, risk score, risk level,
-    recommendation, SHAP explanation)
-    ↓
-Constrained prompt construction (_build_prompt)
-    ↓
-Gemini 2.5 Flash (gemini-2.5-flash) API call
-    ↓
-JSON response parsing
-    ↓
-AIReport Pydantic validation (summary, risk_reason, recommended_action)
-    ↓
-Validated report returned as part of PredictionResponse
-```
-
-### Safety Constraints Implemented in the Prompt
-
-The prompt instructs Gemini to:
-
-- Act only as an **explanation layer**, not a prediction system
-- Use **only** the supplied ML result and SHAP information
-- **Not** produce a new fraud prediction
-- **Not** change the fraud probability, risk score, risk level, or recommendation
-- **Not** invent facts, infer user intent, location, transaction history, or any information not provided
-- Return only the three required JSON fields
-
-The response is validated against the `AIReport` Pydantic schema before it is delivered to the frontend. If the response is malformed or fails validation, a `RuntimeError` is raised and the prediction request fails cleanly.
-
-> **Note:** Prompt-based constraints reduce the likelihood of scope drift but do not constitute an absolute guarantee. The structural Pydantic validation ensures schema correctness.
+`AIReportGenerator` invokes **Google Gemini 2.5 Flash** (`gemini-2.5-flash`) via the `google-genai` SDK:
+- Enforces strict JSON return structure conforming to:
+  ```json
+  {
+    "summary": "Analyst summary text...",
+    "risk_reason": "Detailed risk reasoning...",
+    "recommended_action": "ALLOW | ALLOW_WITH_MONITORING | REVIEW | BLOCK_OR_REVIEW"
+  }
+  ```
+- Prompt guardrails ensure Gemini does not recalculate scores or override ML model outputs.
 
 ---
 
 ## API Documentation
 
-The FastAPI application exposes an interactive OpenAPI interface at `http://127.0.0.1:8000/docs` when the backend is running.
+### Spring Boot Backend Services (Primary Gateway)
 
-### Health
-
-| Method | Path | Auth | Role | Purpose |
+#### 1. Health
+| Method | Endpoint | Auth Required | Role | Description |
 |---|---|---|---|---|
-| `GET` | `/health` | None | None | Check API and model status |
+| `GET` | `/health` | No | Any | Backend service status |
 
-**Response:**
-```json
-{ "status": "healthy", "model_loaded": true }
-```
-
----
-
-### Authentication
-
-| Method | Path | Auth | Role | Purpose |
+#### 2. Authentication
+| Method | Endpoint | Auth Required | Role | Description |
 |---|---|---|---|---|
-| `POST` | `/auth/register` | None | None | Register a new user |
-| `POST` | `/auth/login` | None | None | Authenticate and receive a JWT |
+| `POST` | `/auth/register` | No | Any | Register new account (default role: `USER`) |
+| `POST` | `/auth/login` | No | Any | Authenticate and obtain JWT access token |
 
-**Register request:**
+**Register Request**:
 ```json
 {
   "username": "analyst_user",
-  "email": "user@example.com",
-  "password": "securepassword"
+  "email": "analyst@example.com",
+  "password": "strongpassword123"
 }
 ```
 
-**Login request:**
+**Login Response**:
 ```json
 {
-  "username": "analyst_user",
-  "password": "securepassword"
+  "access_token": "eyJhbGciOiJIUzI1Ni..."
 }
 ```
 
-**Login response:**
-```json
-{
-  "access_token": "<jwt>",
-  "token_type": "bearer"
-}
-```
-
----
-
-### Prediction
-
-| Method | Path | Auth | Role | Purpose |
+#### 3. Fraud Prediction
+| Method | Endpoint | Auth Required | Role | Description |
 |---|---|---|---|---|
-| `POST` | `/predict` | Bearer JWT | USER, ANALYST, ADMIN | Analyze a transaction for fraud |
+| `POST` | `/predict` | Bearer JWT | `USER`, `ANALYST`, `ADMIN` | Submit transaction for fraud evaluation & audit |
 
-**Request body:**
+**Transaction Request Payload**:
 ```json
 {
   "step": 1,
@@ -450,172 +289,64 @@ The FastAPI application exposes an interactive OpenAPI interface at `http://127.
 }
 ```
 
-Valid `type` values: `CASH_IN`, `CASH_OUT`, `DEBIT`, `PAYMENT`, `TRANSFER`
+#### 4. Prediction History
+| Method | Endpoint | Auth Required | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/predictions/history` | Bearer JWT | `USER`, `ANALYST`, `ADMIN` | Get authenticated user's prediction history |
 
-**Response:**
-```json
-{
-  "prediction": 1,
-  "fraud_probability": 0.924185,
-  "risk_score": 92.42,
-  "risk_level": "CRITICAL",
-  "recommendation": "BLOCK_OR_REVIEW",
-  "explanation": {
-    "risk_factors": [
-      { "feature": "Origin balance pattern", "value": 0.0, "impact": 0.0423, "direction": "increases_fraud_risk" }
-    ],
-    "protective_factors": [
-      { "feature": "Transaction time step", "value": 1.0, "impact": 0.0012, "direction": "reduces_fraud_risk" }
-    ]
-  },
-  "ai_report": {
-    "summary": "...",
-    "risk_reason": "...",
-    "recommended_action": "BLOCK_OR_REVIEW"
-  }
-}
-```
+#### 5. Analyst Dashboard
+| Method | Endpoint | Auth Required | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/analyst/dashboard/stats` | Bearer JWT | `ANALYST`, `ADMIN` | Get total predictions, fraud rates, and avg risk score |
+| `GET` | `/analyst/dashboard/risk-distribution` | Bearer JWT | `ANALYST`, `ADMIN` | Get count of predictions per risk level tier |
+| `GET` | `/analyst/dashboard/recent-predictions` | Bearer JWT | `ANALYST`, `ADMIN` | Get feed of 10 recent system-wide predictions |
+
+#### 6. Admin Management
+| Method | Endpoint | Auth Required | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/admin/dashboard` | Bearer JWT | `ADMIN` | Admin access status confirmation |
+| `GET` | `/admin/users` | Bearer JWT | `ADMIN` | List all registered system users |
+| `PATCH` | `/admin/users/{user_id}/role` | Bearer JWT | `ADMIN` | Change target user role (`USER`, `ANALYST`, `ADMIN`) |
+| `PATCH` | `/admin/users/{user_id}/status` | Bearer JWT | `ADMIN` | Toggle user active status (`is_active: true/false`) |
 
 ---
 
-### User
+### FastAPI ML Bridge (Internal ML Microservice)
 
-| Method | Path | Auth | Role | Purpose |
-|---|---|---|---|---|
-| `GET` | `/predictions/history` | Bearer JWT | USER, ANALYST, ADMIN | Retrieve the current user's prediction history |
-
----
-
-### Analyst
-
-| Method | Path | Auth | Role | Purpose |
-|---|---|---|---|---|
-| `GET` | `/analyst/dashboard` | Bearer JWT | ANALYST, ADMIN | Analyst access confirmation |
-| `GET` | `/analyst/dashboard/stats` | Bearer JWT | ANALYST, ADMIN | Aggregate prediction statistics |
-| `GET` | `/analyst/dashboard/risk-distribution` | Bearer JWT | ANALYST, ADMIN | Count of predictions per risk tier |
-| `GET` | `/analyst/dashboard/recent-predictions` | Bearer JWT | ANALYST, ADMIN | Recent prediction records |
-
----
-
-### Admin
-
-| Method | Path | Auth | Role | Purpose |
-|---|---|---|---|---|
-| `GET` | `/admin/dashboard` | Bearer JWT | ADMIN | Admin access confirmation |
-| `GET` | `/admin/users` | Bearer JWT | ADMIN | List all registered users |
-| `PATCH` | `/admin/users/{user_id}/role` | Bearer JWT | ADMIN | Change a user's role |
-| `PATCH` | `/admin/users/{user_id}/status` | Bearer JWT | ADMIN | Activate or deactivate a user |
-
-**Role update request:**
-```json
-{ "role": "ANALYST" }
-```
-
-**Status update request:**
-```json
-{ "is_active": false }
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/` | Service health status message |
+| `GET` | `/health` | Model status check (`{"status": "healthy", "model_loaded": true}`) |
+| `POST` | `/predict` | Internal ML inference endpoint called by Spring Boot |
 
 ---
 
 ## Authentication & Authorization
 
-### Flow
-
-```
-POST /auth/register  →  bcrypt password hash  →  user created (role: USER)
-POST /auth/login     →  credentials verified  →  JWT (HS256) issued (60 min TTY)
-Frontend             →  token stored in localStorage["finguard_token"]
-Authenticated API    →  Authorization: Bearer <token>
-Backend              →  JWT decoded and verified
-                     →  user looked up in database
-                     →  account active check
-                     →  role-based dependency (require_roles) applied
-```
-
-### Roles
-
-| Role | Access |
-|---|---|
-| `USER` | `POST /predict`, `GET /predictions/history` |
-| `ANALYST` | All USER routes + `/analyst/dashboard/*` |
-| `ADMIN` | All ANALYST routes + `/admin/*` |
-
-Role enforcement is implemented server-side in `backend/app/auth/authorization.py` using FastAPI dependency injection. Frontend role checks are for display-only purposes and do not substitute for backend authorization.
-
-**Admin self-protection:** The backend explicitly prevents an admin from changing their own role or deactivating their own account. This is enforced by comparing the authenticated admin's database `id` against the target `user_id`.
+- **Token Storage**: Frontend stores JWT in `localStorage` under `finguard_token`.
+- **Stateless Verification**: Spring Boot `JwtAuthenticationFilter` validates token signature and checks user active state in PostgreSQL.
+- **RBAC Hierarchies**:
+  - `USER`: Access to `/predict` and `/predictions/history`.
+  - `ANALYST`: `USER` privileges + `/analyst/dashboard/*`.
+  - `ADMIN`: Full privileges including `/admin/*` management tools.
+- **Self-Protection Enforcement**: System prevents admins from altering their own role or deactivating their own account in `AdminService`.
 
 ---
 
-## Frontend Architecture
+## Database Architecture
 
-The frontend is a React + Vite single-page application structured around a state-based view router in `App.jsx`. Navigation between views is controlled by an `activeTab` state variable, with navigation items rendered based on the authenticated user's role decoded from the JWT payload.
-
-### Component Map
-
-| Component | Purpose |
-|---|---|
-| `App.jsx` | Application shell, sidebar navigation, JWT state, view routing, backend health check |
-| `Login.jsx` | Authentication form, JWT storage, login API call |
-| `Register.jsx` | Registration form, user creation API call |
-| `TransactionForm.jsx` | Transaction input form, client-side validation, computes balance-consistency fields before submission |
-| `PredictionResult.jsx` | Renders fraud assessment result, risk score gauge, SHAP factor breakdown, AI report |
-| `PredictionHistory.jsx` | Fetches and renders the current user's prediction history |
-| `AnalystDashboard.jsx` | Renders KPI statistics, risk tier distribution, and recent predictions (ANALYST and ADMIN only) |
-| `AdminDashboard.jsx` | Renders user management controls, role assignment, account activation (ADMIN only) |
-
-### API Service Layer
-
-| File | Purpose |
-|---|---|
-| `services/api.js` | All API calls. Base URL: `http://127.0.0.1:8000`. Reads JWT from `localStorage["finguard_token"]` for authenticated requests. |
-| `services/auth.js` | JWT payload decoding, `getCurrentUser()`, `getUserRole()`, `isAuthenticated()` |
-
-### Directory Structure
-
-```
-frontend/src/
-├── App.jsx                     # Application shell and view router
-├── App.css                     # Component layout and design system
-├── index.css                   # CSS design tokens and base styles
-├── main.jsx                    # React entry point
-├── components/
-│   ├── Login.jsx
-│   ├── Register.jsx
-│   ├── TransactionForm.jsx
-│   ├── PredictionResult.jsx
-│   ├── PredictionHistory.jsx
-│   ├── AnalystDashboard.jsx
-│   └── AdminDashboard.jsx
-└── services/
-    ├── api.js
-    └── auth.js
-```
+- **Production**: **Neon PostgreSQL** managed via Spring Data JPA and Hibernate.
+- **Schema Management**: Controlled by `spring.jpa.hibernate.ddl-auto=update`. Tables auto-managed:
+  - `users`: Account identities, email, BCrypt password hash, role (`USER`, `ANALYST`, `ADMIN`), active flag.
+  - `prediction_audit`: User reference, fraud prediction result, probability, risk score, risk level, recommendation, creation timestamp.
+- **Local Fallback**: SQLite connection enabled when `DATABASE_URL` is omitted in development (`jdbc:sqlite:../backend/app/database/finguard.db`).
 
 ---
 
-## Backend Architecture
+## Admin Bootstrap Mechanism
 
-The backend is a single FastAPI application (`backend/app/main.py`) that imports and wires together independently implemented service modules.
-
-### Module Map
-
-| Module / File | Purpose |
-|---|---|
-| `app/main.py` | FastAPI app definition, all route handlers, CORS, global error handler |
-| `app/schemas.py` | All Pydantic request and response models |
-| `app/auth/security.py` | Password hashing (bcrypt), JWT creation/decoding (python-jose HS256), `get_current_user` dependency |
-| `app/auth/auth_service.py` | Login logic — credential lookup and token generation |
-| `app/auth/user_service.py` | Registration logic — user creation |
-| `app/auth/authorization.py` | `require_roles()` FastAPI dependency factory for role enforcement |
-| `app/auth/admin_service.py` | Role update, status update with self-protection checks |
-| `app/auth/bootstrap_admin.py` | Utility to create an initial admin account |
-| `app/auth/bootstrap_analyst.py` | Utility to create an initial analyst account |
-| `app/database/database.py` | SQLAlchemy engine, session factory, `init_db()`, SQLite connection |
-| `app/database/models.py` | `User` and `PredictionAudit` SQLAlchemy ORM models |
-| `app/services/prediction_audit_service.py` | Writes prediction results to `PredictionAudit`, retrieves user prediction history |
-| `app/services/dashboard_service.py` | Aggregates prediction audit records for analyst dashboard stats, risk distribution, and recent predictions |
-| `app/services/ai_report_generator.py` | Gemini API client, prompt construction, JSON parsing, `AIReport` validation |
+Spring Boot includes `AdminInitializer` (`com.finguard.springbackend.config.AdminInitializer`).  
+On application startup, if environment variables `ADMIN_USERNAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` are defined, the system verifies if the account exists. If missing, it creates the initial `ADMIN` account with active status automatically.
 
 ---
 
@@ -623,192 +354,173 @@ The backend is a single FastAPI application (`backend/app/main.py`) that imports
 
 ```
 FinGuard-AI/
-├── .env                                # Environment variables (not committed)
-├── pyproject.toml                      # Python project metadata
-├── paysim.csv                          # PaySim dataset (not committed to VCS)
+├── README.md                           # Comprehensive production documentation
+├── pyproject.toml                      # Python ML project metadata
+├── paysim.csv                          # PaySim dataset (excluded from VCS)
+├── tests/                              # Global test package
 │
-├── backend/
+├── spring-backend/                     # Spring Boot Backend Gateway (Java 17)
+│   ├── Dockerfile
+│   ├── pom.xml                         # Maven dependencies (Spring Security, JPA, PostgreSQL)
+│   └── src/
+│       ├── main/
+│       │   ├── java/com/finguard/springbackend/
+│       │   │   ├── SpringBackendApplication.java
+│       │   │   ├── config/             # AdminInitializer, Jackson, Converters
+│       │   │   ├── controller/         # Auth, Predict, History, Dashboard, Admin, Health
+│       │   │   ├── dto/                # Request & Response DTO records
+│       │   │   ├── entity/             # JPA Entities (User, PredictionAudit)
+│       │   │   ├── repository/         # Spring Data JPA Repositories
+│       │   │   ├── security/           # SecurityConfig, JwtFilter, JwtService, PasswordService
+│       │   │   └── service/            # Business services & FastApiClient REST client
+│       │   └── resources/
+│       │       └── application.properties # Spring application configuration
+│       └── test/                       # Spring Boot unit & integration tests
+│
+├── backend/                            # FastAPI ML Bridge Service (Python 3.11)
 │   └── app/
-│       ├── main.py                     # FastAPI application and routes
-│       ├── schemas.py                  # Pydantic request/response models
-│       ├── auth/
-│       │   ├── security.py             # JWT and bcrypt utilities
-│       │   ├── auth_service.py         # Login logic
-│       │   ├── user_service.py         # Registration logic
-│       │   ├── authorization.py        # Role enforcement dependency
-│       │   ├── admin_service.py        # Admin user management
-│       │   ├── bootstrap_admin.py      # Initial admin account creation
-│       │   └── bootstrap_analyst.py    # Initial analyst account creation
-│       ├── database/
-│       │   ├── database.py             # SQLAlchemy engine and session
-│       │   ├── models.py               # User and PredictionAudit ORM models
-│       │   └── finguard.db             # SQLite database file
+│       ├── main.py                     # FastAPI routes (/health, /predict)
+│       ├── schemas.py                  # Pydantic validation models
 │       └── services/
-│           ├── ai_report_generator.py  # Gemini AI report generation
-│           ├── dashboard_service.py    # Analyst dashboard aggregations
-│           └── prediction_audit_service.py  # Prediction history writes/reads
+│           └── ai_report_generator.py  # Gemini 2.5 Flash report service
 │
-├── frontend/
-│   ├── index.html
+├── frontend/                           # React + Vite Frontend Application
 │   ├── package.json
 │   ├── vite.config.js
+│   ├── .env                            # Frontend environment configuration
 │   └── src/
-│       ├── App.jsx                     # Application shell
-│       ├── App.css                     # Layout and component styles
-│       ├── index.css                   # Design tokens and global styles
-│       ├── main.jsx                    # React entry point
-│       ├── components/
-│       │   ├── Login.jsx
-│       │   ├── Register.jsx
-│       │   ├── TransactionForm.jsx
-│       │   ├── PredictionResult.jsx
-│       │   ├── PredictionHistory.jsx
-│       │   ├── AnalystDashboard.jsx
-│       │   └── AdminDashboard.jsx
-│       └── services/
-│           ├── api.js                  # All API calls
-│           └── auth.js                 # JWT parsing utilities
+│       ├── App.jsx                     # Application shell & navigation router
+│       ├── App.css / index.css         # Styling system
+│       ├── components/                 # React UI components (Login, Admin, Analyst, etc.)
+│       └── services/                   # API client layer & JWT helpers
 │
-└── ml_pipeline/
-    ├── pipeline_runner.py              # Training pipeline orchestrator
-    ├── config/
-    │   ├── config.py                   # MLConfig (threshold, split ratios, model names)
-    │   └── paths.py                    # Artifact file paths
-    ├── data/
-    │   ├── data_loader.py              # CSV loading
-    │   ├── feature_engineering.py      # Balance-consistency feature computation
-    │   ├── dataset_splitter.py         # Train/val/test split
-    │   └── data_inspector.py           # Dataset inspection utilities
-    ├── preprocessing/
-    │   ├── preprocessor.py             # FraudPreprocessor (ColumnTransformer)
-    │   └── imbalance_handler.py        # Class weight computation
-    ├── training/
-    │   └── trainer.py                  # ModelTrainer (RF, XGB, LGBM, DT, LR)
-    ├── evaluation/                     # Model evaluation utilities
-    ├── explainability/
-    │   ├── shap_explainer.py           # FraudExplainer (SHAP TreeExplainer)
-    │   └── explanation_formatter.py    # ExplanationFormatter (human-readable labels)
-    ├── inference/
-    │   └── predictor.py                # FraudPredictor (complete inference pipeline)
-    ├── risk/
-    │   └── risk_engine.py              # RiskEngine (score, level, recommendation)
-    ├── models/                         # Serialized model and preprocessor artifacts
-    │   ├── random_forest.pkl           # Production model
-    │   ├── xgboost.pkl
-    │   ├── lightgbm.pkl
-    │   ├── decision_tree.pkl
-    │   ├── logistic_regression.pkl
-    │   └── preprocessor.pkl
-    └── reports/                        # Evaluation reports and figures
+└── ml_pipeline/                        # Machine Learning Pipeline Package
+    ├── pipeline_runner.py              # ML training orchestrator
+    ├── config/                         # ML hyperparameter & path configurations
+    ├── data/                           # Data loading, feature engineering, splitting
+    ├── preprocessing/                  # ColumnTransformer preprocessor
+    ├── training/                       # Classifier trainers (RF, XGB, LGBM, DT, LR)
+    ├── explainability/                 # SHAP TreeExplainer & label formatters
+    ├── risk/                           # RiskEngine decision matrix
+    ├── inference/                      # FraudPredictor inference wrapper
+    └── models/                         # Serialized model & preprocessor artifacts (.pkl)
 ```
 
 ---
 
-## Installation
+## Environment Variables
+
+Configure environment variables in your deployment environment or local `.env` files. **Never commit real credentials to version control.**
+
+### Spring Boot Backend Environment Variables
+```env
+PORT=8080
+DATABASE_URL=<neon-postgresql-connection-string>
+DB_DRIVER=org.postgresql.Driver
+DB_DIALECT=org.hibernate.dialect.PostgreSQLDialect
+FASTAPI_URL=<fastapi-service-url>
+JWT_SECRET_KEY=<strong-secret-key>
+ADMIN_USERNAME=<admin-username>
+ADMIN_EMAIL=<admin-email>
+ADMIN_PASSWORD=<strong-password>
+```
+
+### FastAPI ML Bridge Environment Variables
+```env
+GEMINI_API_KEY=<google-gemini-api-key>
+```
+
+### Frontend Environment Variables
+```env
+VITE_API_URL=<spring-boot-backend-url>
+```
+
+---
+
+## Local Development
 
 ### Prerequisites
-
+- Java 17 JDK
+- Maven 3.8+ (or included `./mvnw`)
 - Python 3.11
-- Node.js 18+ and npm
-- A Google Gemini API key (obtain from [Google AI Studio](https://aistudio.google.com/))
+- Node.js 18+ & npm
 
-### Backend Setup
-
+### 1. Setup & Run FastAPI ML Bridge
 ```bash
-# From the project root
 cd backend
-
-# Create a virtual environment
 python -m venv .venv
 
-# Activate (Windows)
-.venv\Scripts\activate
+# Activate Virtual Environment:
+# Windows: .venv\Scripts\activate
+# Linux/macOS: source .venv/bin/activate
 
-# Activate (macOS/Linux)
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+pip install -r requirements.txt # or pip install -e ..
+uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### Environment Variables
-
-Create a `.env` file in the project root (`FinGuard-AI/.env`):
-
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-JWT_SECRET_KEY=your_secure_random_jwt_secret_here
-```
-
-> **Important:** `JWT_SECRET_KEY` should be a long, randomly generated string. Do not use the example value in production.
-
-### Frontend Setup
-
+### 2. Setup & Run Spring Boot Backend
 ```bash
-# From the project root
-cd frontend
+cd spring-backend
 
-# Install dependencies
+# Set environment variables for local run if needed
+# Runs Spring Boot on http://localhost:8080
+./mvnw spring-boot:run
+```
+
+### 3. Setup & Run React Frontend
+```bash
+cd frontend
 npm install
-```
-
----
-
-## Running the Application
-
-### Backend
-
-Start the FastAPI server from the project root:
-
-```bash
-backend\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-The API will be available at `http://127.0.0.1:8000`.  
-Interactive API documentation: `http://127.0.0.1:8000/docs`
-
-### Frontend
-
-```bash
-cd frontend
 npm run dev
 ```
-
-The frontend will be available at `http://localhost:5173`.
-
-### Running Both Simultaneously
-
-Open two separate terminals:
-
-**Terminal 1 — Backend:**
-```bash
-backend\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-**Terminal 2 — Frontend:**
-```bash
-cd frontend && npm run dev
-```
-
-> The frontend is pre-configured to call `http://127.0.0.1:8000`. The backend allows CORS from `http://localhost:5173`.
-
-### Verifying the Setup
-
-Check backend health:
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-Expected response:
-```json
-{ "status": "healthy", "model_loaded": true }
-```
+Access the application at `http://localhost:5173`.
 
 ---
 
-## Notes
+## Production Deployment
 
-- The ML model artifacts in `ml_pipeline/models/` must exist before starting the backend. If they are missing, run the training pipeline via `pipeline_runner.py`.
-- The SQLite database (`finguard.db`) is created automatically on first run via `init_db()`.
-- The PaySim dataset (`paysim.csv`) is required only for training. It is not needed to run the inference server.
-- By default, new accounts are assigned the `USER` role. Use the bootstrap scripts or admin dashboard to promote accounts to `ANALYST` or `ADMIN`.
+The project is deployed on **Render** paired with **Neon PostgreSQL**:
+
+- **React Frontend**: Deployed as a Static Site / Web Service.  
+  URL: `https://finguard-ai-4ico.onrender.com`
+- **Spring Boot Backend**: Deployed as a Java Web Service connecting to Neon PostgreSQL.  
+  URL: `https://finguard-ai-spring.onrender.com`
+- **FastAPI ML Bridge**: Deployed as a Python Web Service with ML dependencies & Gemini API integration.  
+  URL: `https://finguard-ai-backend-60wj.onrender.com`
+
+---
+
+## Security
+
+- **Stateless JWT Security**: Requests signed with HS256 JWT tokens.
+- **BCrypt Hashing**: Passwords stored securely using BCrypt encryption.
+- **Role-Based Access Control (RBAC)**: Method and endpoint level security via Spring Security.
+- **Self-Protection Safeguards**: Server-side prevention of administrative self-demotion or self-deactivation.
+- **CORS Policies**: Explicit origin restrictions configured in `SecurityConfig`.
+- **Environment Isolation**: All sensitive credentials passed via environment variables.
+
+---
+
+## Testing
+
+- **Backend Context Verification**: Run Spring Boot context and integration tests:
+  ```bash
+  cd spring-backend
+  ./mvnw test
+  ```
+- **Frontend Production Build**: Verify React application build bundle:
+  ```bash
+  cd frontend
+  npm run build
+  ```
+
+---
+
+## Current Status
+
+The core FinGuard AI platform is **fully implemented and operating in production**:
+- ✅ Spring Boot REST Gateway & Security Layer active.
+- ✅ Neon PostgreSQL persistent data store connected.
+- ✅ FastAPI ML Inference Bridge & Gemini AI Reporting active.
+- ✅ React SPA Frontend deployed and fully interactive.
+- ✅ User Authentication, RBAC, Prediction History, Analyst Dashboard, and Admin Console verified.
